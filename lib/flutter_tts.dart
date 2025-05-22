@@ -493,11 +493,12 @@ class FlutterTts {
   /// [Future] which invokes the platform specific method for getEngines
   /// Returns a list of installed TTS engines
   /// ***Android supported only***
-  Future<dynamic> get getEngines async {
-    final engines = await _channel.invokeMethod('getEngines');
+  Future<List<Map<String, String>>> get getEngines async {
+    final List<dynamic> enginesRaw = await _channel.invokeMethod('getEngines');
+    final List<Map<String, String>> engines =
+        enginesRaw.map((e) => Map<String, String>.from(e as Map)).toList();
     return engines;
   }
-
   /// [Future] which invokes the platform specific method for getDefaultEngine
   /// Returns a `String` of the default engine name
   /// ***Android supported only ***
