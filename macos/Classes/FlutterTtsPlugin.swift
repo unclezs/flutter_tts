@@ -392,6 +392,8 @@ extension AVSpeechSynthesisVoiceQuality {
             return "premium"
         case .enhanced:
             return "enhanced"
+        @unknown default:
+            return "unknown"
         }
     }
 }
@@ -406,6 +408,8 @@ extension AVSpeechSynthesisVoiceGender {
             return "female"
         case .unspecified:
             return "unspecified"
+        @unknown default:
+            return "unknown" // 防止未知枚举值导致崩溃
         }
     }
 }
