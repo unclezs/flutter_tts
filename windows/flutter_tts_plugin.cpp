@@ -9,13 +9,16 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <mutex>
+#include <vector>
+#include <algorithm>
 
 typedef std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> FlutterResult;
 //typedef flutter::MethodResult<flutter::EncodableValue>* PFlutterResult;
 
 std::unique_ptr<flutter::MethodChannel<>> methodChannel;
 
-#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
 #include <winrt/Windows.Media.SpeechSynthesis.h>
 #include <winrt/Windows.Media.Playback.h>
 #include <winrt/Windows.Media.Core.h>
@@ -413,10 +416,10 @@ namespace {
 		    wchar_t locale[25];
             LCIDToLocaleName((LCID)std::strtol(CW2A(psz), NULL, 16), locale, 25, 0);
             ::CoTaskMemFree(psz);
-            std::string language = CW2A(locale);
+            std::string language = std::string(CW2A(locale));
             psz = NULL;
             cpAttribKey->GetStringValue(L"Name", &psz);
-			std::string name = CW2A(psz);
+			std::string name = std::string(CW2A(psz));
 			::CoTaskMemFree(psz);
             flutter::EncodableMap voiceInfo;
             voiceInfo[flutter::EncodableValue("locale")] = language;
@@ -446,14 +449,14 @@ namespace {
 			WCHAR* psz = NULL;
 			hr = cpAttribKey->GetStringValue(L"Name", &psz);
 			if (FAILED(hr)) { result->Success(0); return; }
-			std::string name = CW2A(psz);
+			std::string name = std::string(CW2A(psz));
 			::CoTaskMemFree(psz);
 			psz = NULL;
 			hr = cpAttribKey->GetStringValue(L"Language", &psz);
 		    wchar_t locale[25];
             LCIDToLocaleName((LCID)std::strtol(CW2A(psz), NULL, 16), locale, 25, 0);
             ::CoTaskMemFree(psz);
-            std::string language = CW2A(locale);
+            std::string language = std::string(CW2A(locale));
 			if (name == voiceName && language == voiceLanguage)
 			{
 				pVoice->SetVoice(cpVoiceToken);
@@ -489,7 +492,7 @@ namespace {
 			hr = cpAttribKey->GetStringValue(L"Language", &psz);
 		    wchar_t locale[25];
             LCIDToLocaleName((LCID)std::strtol(CW2A(psz), NULL, 16), locale, 25, 0);
-            std::string language = CW2A(locale);
+            std::string language = std::string(CW2A(locale));
 			languagesSet.insert(flutter::EncodableValue(language));
 			::CoTaskMemFree(psz);
 			cpVoiceToken->Release();
@@ -523,7 +526,7 @@ namespace {
 			hr = cpAttribKey->GetStringValue(L"Language", &psz);
 		    wchar_t locale[25];
             LCIDToLocaleName((LCID)std::strtol(CW2A(psz), NULL, 16), locale, 25, 0);
-            std::string language = CW2A(locale);
+            std::string language = std::string(CW2A(locale));
 			if (language == voiceLanguage)
 			{
 				pVoice->SetVoice(cpVoiceToken);
