@@ -641,11 +641,12 @@ class FlutterTtsPlugin : MethodCallHandler, FlutterPlugin {
         handler!!.postDelayed(timeoutRunnable, 3000)
 
         try {
-            val tempTts = TextToSpeech(context, TextToSpeech.OnInitListener { status ->
+            var tempTts: TextToSpeech? = null
+            tempTts = TextToSpeech(context, TextToSpeech.OnInitListener { status ->
                 handler!!.post {
                     if (timeoutTriggered) {
                         try {
-                            tempTts.shutdown()
+                            tempTts?.shutdown()
                         } catch (e: Exception) {
                             Log.d(tag, "Error shutting down timed-out TTS: ${e.message}")
                         }
@@ -656,7 +657,7 @@ class FlutterTtsPlugin : MethodCallHandler, FlutterPlugin {
 
                     if (status == TextToSpeech.SUCCESS) {
                         try {
-                            for (voice in tempTts.voices) {
+                            for (voice in tempTts?.voices ?: emptySet()) {
                                 val voiceMap = HashMap<String, String>()
                                 readVoiceProperties(voiceMap, voice)
                                 voiceMap["engine"] = engineName
@@ -671,7 +672,7 @@ class FlutterTtsPlugin : MethodCallHandler, FlutterPlugin {
                     }
 
                     try {
-                        tempTts.shutdown()
+                        tempTts?.shutdown()
                     } catch (e: Exception) {
                         Log.d(tag, "Error shutting down TTS: ${e.message}")
                     }
