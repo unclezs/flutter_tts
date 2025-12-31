@@ -606,51 +606,85 @@ class FlutterTtsPlugin : MethodCallHandler, FlutterPlugin {
         val allVoices = ArrayList<HashMap<String, String>>()
         try {
             val engines = tts!!.engines
-            var pendingEngines = engines.size
-            if (pendingEngines == 0) {
+            if (engines.isEmpty()) {
                 result.success(allVoices)
                 return
             }
-            for (engineInfo in engines) {
-                val engineName = engineInfo.name
-                val engineLabel = engineInfo.label
-                val tempTts = TextToSpeech(context, TextToSpeech.OnInitListener { status ->
-                    handler!!.post {
-                        if (status == TextToSpeech.SUCCESS) {
-                            try {
-                                val tempTtsRef = ttsMap[engineName]
-                                if (tempTtsRef != null) {
-                                    for (voice in tempTtsRef.voices) {
-                                        val voiceMap = HashMap<String, String>()
-                                        readVoiceProperties(voiceMap, voice)
-                                        voiceMap["engine"] = engineName
-                                        voiceMap["engineLabel"] = engineLabel
-                                        allVoices.add(voiceMap)
-                                    }
-                                    tempTtsRef.shutdown()
-                                }
-                            } catch (e: Exception) {
-                                Log.d(tag, "getAllEngineVoices error for $engineName: ${e.message}")
-                            }
-                        } else {
-                            Log.d(tag, "getAllEngineVoices: engine $engineName init failed with status $status")
-                        }
-                        ttsMap.remove(engineName)
-                        pendingEngines--
-                        if (pendingEngines == 0) {
-                            result.success(allVoices)
-                        }
-                    }
-                }, engineName)
-                ttsMap[engineName] = tempTts
-            }
+            processNextEngine(engines.iterator(), allVoices, result)
         } catch (e: Exception) {
             Log.d(tag, "getAllEngineVoices: " + e.message)
             result.success(allVoices)
         }
     }
 
-    private val ttsMap = HashMap<String, TextToSpeech>()
+    private fun processNextEngine(
+        engineIterator: Iterator<TextToSpeech.EngineInfo>,
+        allVoices: ArrayList<HashMap<String, String>>,
+        result: Result
+    ) {
+        if (!engineIterator.hasNext()) {
+            result.success(allVoices)
+            return
+        }
+
+        val engineInfo = engineIterator.next()
+        val engineName = engineInfo.name
+        val engineLabel = engineInfo.label
+        var timeoutTriggered = false
+
+        val timeoutRunnable = Runnable {
+            timeoutTriggered = true
+            Log.d(tag, "getAllEngineVoices: timeout for engine $engineName")
+            processNextEngine(engineIterator, allVoices, result)
+        }
+
+        handler!!.postDelayed(timeoutRunnable, 3000)
+
+        try {
+            val tempTts = TextToSpeech(context, TextToSpeech.OnInitListener { status ->
+                handler!!.post {
+                    if (timeoutTriggered) {
+                        try {
+                            tempTts.shutdown()
+                        } catch (e: Exception) {
+                            Log.d(tag, "Error shutting down timed-out TTS: ${e.message}")
+                        }
+                        return@post
+                    }
+
+                    handler!!.removeCallbacks(timeoutRunnable)
+
+                    if (status == TextToSpeech.SUCCESS) {
+                        try {
+                            for (voice in tempTts.voices) {
+                                val voiceMap = HashMap<String, String>()
+                                readVoiceProperties(voiceMap, voice)
+                                voiceMap["engine"] = engineName
+                                voiceMap["engineLabel"] = engineLabel
+                                allVoices.add(voiceMap)
+                            }
+                        } catch (e: Exception) {
+                            Log.d(tag, "getAllEngineVoices error for $engineName: ${e.message}")
+                        }
+                    } else {
+                        Log.d(tag, "getAllEngineVoices: engine $engineName init failed with status $status")
+                    }
+
+                    try {
+                        tempTts.shutdown()
+                    } catch (e: Exception) {
+                        Log.d(tag, "Error shutting down TTS: ${e.message}")
+                    }
+
+                    processNextEngine(engineIterator, allVoices, result)
+                }
+            }, engineName)
+        } catch (e: Exception) {
+            Log.d(tag, "Error creating TTS for $engineName: ${e.message}")
+            handler!!.removeCallbacks(timeoutRunnable)
+            processNextEngine(engineIterator, allVoices, result)
+        }
+    }
 
     private fun getDefaultEngine(result: Result) {
         val defaultEngine: String? = tts!!.defaultEngine
