@@ -414,6 +414,7 @@ class FlutterTtsPlugin : MethodCallHandler, FlutterPlugin {
             "getVoices" -> getVoices(result)
             "getSpeechRateValidRange" -> getSpeechRateValidRange(result)
             "getEngines" -> getEngines(result)
+            "getAllEngineVoices" -> getAllEngineVoices(result)
             "getDefaultEngine" -> getDefaultEngine(result)
             "getDefaultVoice" -> getDefaultVoice(result)
             "setVoice" -> {
@@ -600,6 +601,56 @@ class FlutterTtsPlugin : MethodCallHandler, FlutterPlugin {
         }
         result.success(engines)
     }
+
+    private fun getAllEngineVoices(result: Result) {
+        val allVoices = ArrayList<HashMap<String, String>>()
+        try {
+            val engines = tts!!.engines
+            var pendingEngines = engines.size
+            if (pendingEngines == 0) {
+                result.success(allVoices)
+                return
+            }
+            for (engineInfo in engines) {
+                val engineName = engineInfo.name
+                val engineLabel = engineInfo.label
+                val tempTts = TextToSpeech(context, TextToSpeech.OnInitListener { status ->
+                    handler!!.post {
+                        if (status == TextToSpeech.SUCCESS) {
+                            try {
+                                val tempTtsRef = ttsMap[engineName]
+                                if (tempTtsRef != null) {
+                                    for (voice in tempTtsRef.voices) {
+                                        val voiceMap = HashMap<String, String>()
+                                        readVoiceProperties(voiceMap, voice)
+                                        voiceMap["engine"] = engineName
+                                        voiceMap["engineLabel"] = engineLabel
+                                        allVoices.add(voiceMap)
+                                    }
+                                    tempTtsRef.shutdown()
+                                }
+                            } catch (e: Exception) {
+                                Log.d(tag, "getAllEngineVoices error for $engineName: ${e.message}")
+                            }
+                        } else {
+                            Log.d(tag, "getAllEngineVoices: engine $engineName init failed with status $status")
+                        }
+                        ttsMap.remove(engineName)
+                        pendingEngines--
+                        if (pendingEngines == 0) {
+                            result.success(allVoices)
+                        }
+                    }
+                }, engineName)
+                ttsMap[engineName] = tempTts
+            }
+        } catch (e: Exception) {
+            Log.d(tag, "getAllEngineVoices: " + e.message)
+            result.success(allVoices)
+        }
+    }
+
+    private val ttsMap = HashMap<String, TextToSpeech>()
 
     private fun getDefaultEngine(result: Result) {
         val defaultEngine: String? = tts!!.defaultEngine

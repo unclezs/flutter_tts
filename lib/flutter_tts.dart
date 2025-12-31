@@ -499,6 +499,19 @@ class FlutterTts {
         enginesRaw.map((e) => Map<String, String>.from(e as Map)).toList();
     return engines;
   }
+
+  /// [Future] which invokes the platform specific method for getAllEngineVoices
+  /// Returns a list of voices from all installed TTS engines
+  /// Each voice map includes 'engine' and 'engineLabel' fields
+  /// ***Android supported only***
+  Future<List<Map<String, String>>> get getAllEngineVoices async {
+    final List<dynamic> voicesRaw =
+        await _channel.invokeMethod('getAllEngineVoices');
+    final List<Map<String, String>> voices =
+        voicesRaw.map((e) => Map<String, String>.from(e as Map)).toList();
+    return voices;
+  }
+
   /// [Future] which invokes the platform specific method for getDefaultEngine
   /// Returns a `String` of the default engine name
   /// ***Android supported only ***
